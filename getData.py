@@ -1,3 +1,5 @@
+import multiprocessing
+
 from MyGaussianBlur import MyGaussianBlur
 from pylab import *
 from PIL import Image
@@ -15,7 +17,7 @@ minCellSize = 50  # a cell is bigger than $ pixels
 maxCellSize = 1024  # a cell is smaller than $ pixels
 ThreadHoldRate = 0.15  # Cell threadhold rate
 
-r = 2  # 高斯模糊模版半径，自己自由调整
+r = 1  # 高斯模糊模版半径，自己自由调整
 s = 2  # 高斯模糊sigema数值，自己自由调整
 
 class Cell:
@@ -30,7 +32,7 @@ class Cell:
         self.cellSize = 0  # count pixel of cell
         Cell.cellsCount += 1
         self.cellNo = Cell.cellsCount
-        self.reFluorescenceTable = []
+        self.reFluorescenceTable = np.zeros(photosNum)
         self.maxFluo = 0  # 不算前1%
         self.maxFluoIndex = 0
 
@@ -121,6 +123,7 @@ def labelExpend(cell, i, j):
                 cell.cellSize = 0                      # 跳出程序后删
             return
 
+
 def removeCellByNo(cellList, cellNo):
     for cell in cellList:
         if cell.cellNo == cellNo:
@@ -138,7 +141,8 @@ def fluoExpend(cell, im, bgValue):
         point = fifo.get()
         if label[point] == cell.cellNo and visit[point] == False:
             visit[point] = True
-            result += (im[point] - bgValue)
+            if im[point] > bgValue:
+                result += (im[point] - bgValue)
             fifo.put((point[0], point[1] - 1))
             fifo.put((point[0], point[1] + 1))
             fifo.put((point[0] + 1, point[1]))
@@ -169,11 +173,11 @@ print('finish init')
 plt.imshow(label)
 # plt.show()
 #每张图片
-for photoIndex in range(1, photosNum + 1):
-    print('处理第', photoIndex, '张照片...') #if photoIndex % 10 == 0 else None
+'''没有考虑到细胞的帧偏移'''
+def processPhoto(photoIndex):
+    print('处理第', photoIndex+1, '张照片...') #if photoIndex % 10 == 0 else None
 
-
-    img = Image.open(generalPath % (photoIndex), 'r')
+    img = Image.open(generalPath % (photoIndex + 1), 'r')
     im = np.array(img)
 
     bgValue = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
@@ -182,9 +186,18 @@ for photoIndex in range(1, photosNum + 1):
     #每个细胞
     for cell in cellList:
         fluo = fluoExpend(cell, im, bgValue)
-        cell.reFluorescenceTable.append(fluo)
+        cell.reFluorescenceTable[photoIndex] = fluo
         cell.maxFluo = fluo if fluo > cell.maxFluo else cell.maxFluo
         cell.maxFluoIndex = photoIndex if fluo > cell.maxFluo else cell.maxFluoIndex
+
+cores = multiprocessing.cpu_count()
+pool = multiprocessing.Pool(processes=cores)
+print('start multiprocessing, coresNum: ',cores)
+photosIndex = range(0, photosNum)
+cnt = 0
+for _ in pool.imap_unordered(processPhoto, photosIndex):
+    sys.stdout.write('done %d/%d\r' % (cnt, len(photosIndex)))
+    cnt += 1
 
 # 求细胞related荧光
 print('test cell reFluo')
