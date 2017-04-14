@@ -1,15 +1,16 @@
 %parameter initial
 clear all;
 rawpath = {...
-    '/Volumes/Seagate BUP/IGEM_new/20170318/5ul/piezo+5ult%03dc1.tif',...
+    '/Volumes/Seagate BUP/IGEM_new/20170409/GECO+piezo/geco+piezo20ul/geco+piezo20ult%03dc1.tif',...
     };
 nf=size(rawpath,2);  %num of files
-nt=500;%num of pictures in one file
+nt=300;%num of pictures in one file
 np=6;  %num of points in one picture
 interval=0.4;
 skipRate=10; %picture flash rate
-caxis_left=300;caxi_right2=1400;
-Title = '20170318,piezo,0.256Pa';
+caxis_trigger=true;
+caxis_left=100;caxi_right=500;
+Title = '20170409,geco+piezo,1.0247Pa';
 Legend= {...
     'area 1',...
     'area 2',...
@@ -33,7 +34,9 @@ for i=1:nf
         end
         rawfile=sprintf(rawpath{i}, i1); rawImg = importdata(rawfile); rawImg=rawImg(:,:,1);
         imagesc(rawImg);colorbar;
-        caxis([caxis_left,caxi_right2]);
+        if caxis_trigger
+            caxis([caxis_left,caxi_right]);
+        end
         t = title(strcat('pause key: ',char(int16('a')+i-1)));set(t,'fontsize',20);
         if strcmpi(get(gcf,'CurrentCharacter'),char(int16('a')+i-1))
             break;
