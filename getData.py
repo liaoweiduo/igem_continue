@@ -8,13 +8,14 @@ import queue
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pickle
+import random
 
-generalPath = "/Volumes/Seagate BUP/IGEM_new/20170409/GECO/geco1ul/geco1ult%03dc1.tif"
-dataPath = "data/20170409geco1ul.pkl"
-# generalPath = "piezot%03dc1.tif"
+generalPath = "/Volumes/Seagate BUP/IGEM_new/20170409/GECO+Piezo/geco+piezo1ul/geco+piezo1ult%03dc1.tif"
+dataSave = "data/20170409geco+piezo1ul"
+stress = '0.0512 Pa'
 
 photosNum = 300  # the num of photos
-#columnNum = 9  # column graph 's column num
+delay = 0.5
 
 minCellSize = 50  # a cell is bigger than $ pixels
 maxCellSize = 10000  # a cell is smaller than $ pixels
@@ -67,7 +68,7 @@ im = np.array(image)
 bgPoint = plt.ginput(2)
 bgValue = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
 
-fig = plt.figure('Photo & Chosen Cells & Bar & Line Chart')
+fig = plt.figure(dataSave)
 g1 = fig.add_subplot(221)
 g1.set_title('Without Background')
 
@@ -210,8 +211,8 @@ def processPhoto(photoIndex):
     for cell in cellList:
         fluo = fluoExpend(cell, im, bgValue)
         cellsForParallel[cell]['reFluorescenceTable'][photoIndex] = fluo
-        cellsForParallel[cell]['maxFluo'].value = fluo if fluo > cell.maxFluo else cell.maxFluo
-        cellsForParallel[cell]['maxFluoIndex'].value = photoIndex if fluo > cell.maxFluo else cell.maxFluoIndex
+        cellsForParallel[cell]['maxFluo'].value = fluo if fluo > cellsForParallel[cell]['maxFluo'].value else cellsForParallel[cell]['maxFluo'].value
+        cellsForParallel[cell]['maxFluoIndex'].value = photoIndex if fluo > cellsForParallel[cell]['maxFluo'].value else cellsForParallel[cell]['maxFluoIndex'].value
     return photoIndex
 
 
@@ -246,10 +247,12 @@ for cell in cellList:
     print('cell No: ', cell.cellNo, ' reFluorescenceTable: ', cell.reFluorescenceTable)
 print('data save')
 
-with open(dataPath, 'wb') as f:                     # open file with write-mode
+with open(dataSave + '.pkl', 'wb') as f:                     # open file with write-mode
     pickle.dump(cellList, f)                   # serialize and save object
 
-# 画图:柱状图
+# 画图
+
+cellMap = {}
 
 g3 = fig.add_subplot(223)
 g3.set_title('Bar Chart')
@@ -266,6 +269,10 @@ xTicks = np.arange(round(maxF) + 1)
 columnY = np.zeros(round(maxF) + 1, dtype = int)
 for cell in cellList:
     columnY[round(cell.maxFluo)] += 1
+    if cellMap.get(round(cell.maxFluo)) == None:
+        cellMap[round(cell.maxFluo)] = [cell]
+    else:
+        cellMap[round(cell.maxFluo)].append(cell)
 
 # 定义柱状图每个柱的宽度
 bar_width = 1
@@ -282,4 +289,20 @@ g3.set_xticks(xTicks + bar_width / 2)
 # 设置x轴的范围
 g3.set_xlim([0 - bar_width / 2, round(maxF) + 3 * bar_width / 2])
 
+#画reFluo时间图
+g4 = fig.add_subplot(224)
+g4.set_title('Time Chart ' + stress)
+xTime = np.arange(photosNum) * delay
+colorMap = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+colorIndex = 0
+for x in xTime:
+    if cellMap.get(x) == None:
+        continue
+    selectedCellIndex = random.randint(0,len(cellMap[x])-1)
+    selectedCell = cellMap[x][selectedCellIndex]
+    print('select cell No: ', selectedCell.cellNo)
+    g4.plot(xTime, selectedCell.reFluorescenceTable, colorMap[colorIndex])
+    colorIndex += 1 if colorIndex < 7 else 0
+
+plt.savefig(dataSave + '.png')
 plt.show()

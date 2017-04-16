@@ -150,6 +150,7 @@ y = [200, 500, 200, 500]
 xxx=np.linspace(0,5,6)
 print(xxx)
 '''
+
 '''
 def f(x):
     time.sleep(2)
@@ -188,7 +189,7 @@ print ("你好吗？\r朋友")
 
 
 
-
+import random
 import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -266,9 +267,18 @@ labels = ['{}\n{} km/h'.format(animal, speed) for animal, speed in zip(animals, 
 # 画饼状图，并指定标签和对应颜色
 bx.pie(speeds, labels=labels, colors=colors)
 # bx.imshow([1,2,3,4,5,6])
-plt.show()
+# plt.show()
 
 print(np.arange(3).dtype)
 print(np.linspace(0,2,3))
 
 
+xTime = np.arange(5) * 0.5
+print(xTime)
+
+print(random.randint(1,5))
+
+
+ssss='sdfdsfsd'
+qqqq=ssss+'.ll'
+print(qqqq)
