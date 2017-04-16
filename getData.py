@@ -1,21 +1,31 @@
 import multiprocessing
-
+from multiprocessing.sharedctypes import Value, Array
 from MyGaussianBlur import MyGaussianBlur
 from pylab import *
 from PIL import Image
 import copy
 import queue
+import matplotlib as mpl
 import matplotlib.pyplot as plt
+import pickle
 
-generalPath = "/Volumes/Seagate BUP/IGEM_new/20170318/5ul/piezo+5ult%03dc1.tif"
-#generalPath = "piezot%03dc1.tif"
+generalPath = "/Volumes/Seagate BUP/IGEM_new/20170409/GECO/geco1ul/geco1ult%03dc1.tif"
+dataPath = "data/20170409geco1ul.pkl"
+# generalPath = "piezot%03dc1.tif"
 
-photosNum = 500 # the num of photos
-columnNum = 9 # column graph 's column num
+photosNum = 300  # the num of photos
+#columnNum = 9  # column graph 's column num
 
 minCellSize = 50  # a cell is bigger than $ pixels
-maxCellSize = 1024  # a cell is smaller than $ pixels
+maxCellSize = 10000  # a cell is smaller than $ pixels
 ThreadHoldRate = 0.15  # Cell threadhold rate
+
+mpl.rcParams['axes.titlesize'] = 20
+mpl.rcParams['xtick.labelsize'] = 16
+mpl.rcParams['ytick.labelsize'] = 16
+mpl.rcParams['axes.labelsize'] = 16
+mpl.rcParams['xtick.major.size'] = 0
+mpl.rcParams['ytick.major.size'] = 0
 
 r = 1  # 高斯模糊模版半径，自己自由调整
 s = 2  # 高斯模糊sigema数值，自己自由调整
@@ -24,7 +34,6 @@ class Cell:
     cellsCount = 0
 
     def __init__(self, topX, topY):
-
         self.topPoint = (topX, topY)
         self.downPoint = (topX, topY)
         self.leftPoint = (topX, topY)
@@ -33,10 +42,10 @@ class Cell:
         Cell.cellsCount += 1
         self.cellNo = Cell.cellsCount
         self.reFluorescenceTable = np.zeros(photosNum)
-        self.maxFluo = 0  # 不算前1%
+        self.maxFluo = 0.0
         self.maxFluoIndex = 0
 
-img = Image.open(generalPath % (1), 'r')
+img = Image.open(generalPath % (int(photosNum / 2)), 'r')
 im = np.array(img)
 
 # print('Im: \n', im)
@@ -45,19 +54,22 @@ lenX = int(im.shape[0])
 lenY = int(im.shape[1])
 lenT = lenX * lenY
 
-plt.figure(1)
-plt.subplot(2,2,1)
+
+figInput = plt.figure('Choose Background')
 plt.imshow(im)  # 显示图片
-plt.title("Choose Background")
 
 # GaussianBlur
-GBlur = MyGaussianBlur(radius = r, sigema = s)  # 声明高斯模糊类
+GBlur = MyGaussianBlur(radius=r, sigema=s)  # 声明高斯模糊类
 temp = GBlur.template()  # 得到滤波模版
 image = GBlur.filter(img, temp)  # 高斯模糊滤波，得到新的图片
-im=np.array(image)
+im = np.array(image)
 
-bgPoint = ginput(2)
-bgValue = int(im[int(bgPoint[0][1]) : int(bgPoint[1][1]), int(bgPoint[0][0]) : int(bgPoint[1][0])].mean())
+bgPoint = plt.ginput(2)
+bgValue = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
+
+fig = plt.figure('Photo & Chosen Cells & Bar & Line Chart')
+g1 = fig.add_subplot(221)
+g1.set_title('Without Background')
 
 for i in range(0, lenX):
     for j in range(0, lenY):
@@ -66,7 +78,7 @@ for i in range(0, lenX):
         else:
             im[i][j] -= bgValue
 
-plt.imshow(im)
+g1.imshow(im)
 
 label = np.zeros([im.shape[0], im.shape[1]], int16)
 
@@ -82,8 +94,9 @@ sortedIm.sort()
 # print('sortedIm: \n', sortedIm)
 # print(sortedIm.shape)
 minAve = sortedIm[0]
-maxAve = sortedIm[int(lenT)-1]
+maxAve = sortedIm[int(lenT) - 1]
 threadHold = minAve * (1 - ThreadHoldRate) + maxAve * ThreadHoldRate
+
 # print('min: ', minAve, ' max: ', maxAve, ' threadHold: ', threadHold)
 
 # label     0:unVisit  1:cellNo ...   -1:background
@@ -114,13 +127,13 @@ def labelExpend(cell, i, j):
                 cell.rightPoint = point
             if cell.downPoint[0] < point[0]:
                 cell.downPoint = point
-        elif label[point] != -1 and label[point] != flag:     # 和已存在细胞相撞 判断是否删掉2个细胞
+        elif label[point] != -1 and label[point] != flag:  # 和已存在细胞相撞 判断是否删掉2个细胞
             cell2No = label[point]
             # print('join occurred, the cell is: ',cell2No)
             if cell.cellSize > minCellSize / 2:
                 removeCellByNo(cellList, cell2No)
                 # print('2 cell join, remove: ', cell2No, ' for the reason that cellSize = ', cell.cellSize)
-                cell.cellSize = 0                      # 跳出程序后删
+                cell.cellSize = 0  # 跳出程序后删
             return
 
 
@@ -128,13 +141,14 @@ def removeCellByNo(cellList, cellNo):
     for cell in cellList:
         if cell.cellNo == cellNo:
             cellList.remove(cell)
-            del(cell)
+            del (cell)
             return True
     return False
 
+
 def fluoExpend(cell, im, bgValue):
     result = 0
-    visit = np.zeros([lenX, lenY], dtype = bool)
+    visit = np.zeros([lenX, lenY], dtype=bool)
     fifo = queue.Queue()
     fifo.put(cell.topPoint)
     while fifo.qsize() != 0:
@@ -146,11 +160,10 @@ def fluoExpend(cell, im, bgValue):
             fifo.put((point[0], point[1] - 1))
             fifo.put((point[0], point[1] + 1))
             fifo.put((point[0] + 1, point[1]))
-    return int(result / cell.cellSize)
+    return result / cell.cellSize
 
 cellList = []
-
-plt.subplot(2,2,2)
+cellsForParallel = {}
 
 for i in range(0, lenY):
     for j in range(0, lenX):
@@ -166,16 +179,26 @@ for i in range(0, lenY):
                 if cell.cellSize < minCellSize or cell.cellSize > maxCellSize:
                     # print('remove from cellList')
                     cellList.remove(cell)
-                    del(cell)
+                    del (cell)
 
 '''待加入check cellList，删除圆形细胞及非细胞的代码'''
+
+for cell in cellList:
+    cellsForParallel[cell] = {
+        'reFluorescenceTable' : Array('f', np.zeros(photosNum), lock = False),
+        'maxFluo' : Value('f', 0.0, lock = True),
+        'maxFluoIndex' : Value('i', 0, lock = True)}
+
 print('finish init')
-plt.imshow(label)
-# plt.show()
-#每张图片
+g2 = fig.add_subplot(222)
+g2.set_title('Chosen Cells')
+g2.imshow(label)
+
+# 每张图片
 '''没有考虑到细胞的帧偏移'''
+
 def processPhoto(photoIndex):
-    print('处理第', photoIndex+1, '张照片...') #if photoIndex % 10 == 0 else None
+    # print('处理第', photoIndex+1, '张照片...') # if photoIndex % 10 == 0 else None
 
     img = Image.open(generalPath % (photoIndex + 1), 'r')
     im = np.array(img)
@@ -183,24 +206,33 @@ def processPhoto(photoIndex):
     bgValue = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
 
     '''只给算的区域减背景'''
-    #每个细胞
+    # 每个细胞
     for cell in cellList:
         fluo = fluoExpend(cell, im, bgValue)
-        cell.reFluorescenceTable[photoIndex] = fluo
-        cell.maxFluo = fluo if fluo > cell.maxFluo else cell.maxFluo
-        cell.maxFluoIndex = photoIndex if fluo > cell.maxFluo else cell.maxFluoIndex
+        cellsForParallel[cell]['reFluorescenceTable'][photoIndex] = fluo
+        cellsForParallel[cell]['maxFluo'].value = fluo if fluo > cell.maxFluo else cell.maxFluo
+        cellsForParallel[cell]['maxFluoIndex'].value = photoIndex if fluo > cell.maxFluo else cell.maxFluoIndex
+    return photoIndex
+
 
 cores = multiprocessing.cpu_count()
 pool = multiprocessing.Pool(processes=cores)
-print('start multiprocessing, coresNum: ',cores)
+print('start multiprocessing, coresNum: ', cores)
+# for photoIndex in range(0, photosNum):
+#     pool.apply_async(processPhoto, photoIndex)
 photosIndex = range(0, photosNum)
 cnt = 0
 for _ in pool.imap_unordered(processPhoto, photosIndex):
-    sys.stdout.write('done %d/%d\r' % (cnt, len(photosIndex)))
     cnt += 1
+    print ('处理了 ', cnt, ' 张照片...') if cnt % 10 == 0 else None
+#把共享变量里的值赋给cell
+for cell in cellList:
+    cell.reFluorescenceTable = cellsForParallel[cell]['reFluorescenceTable'][:]
+    cell.maxFluo = cellsForParallel[cell]['maxFluo'].value
+    cell.maxFluoIndex = cellsForParallel[cell]['maxFluoIndex'].value
 
 # 求细胞related荧光
-print('test cell reFluo')
+print('get cell reFluo')
 
 for cell in cellList:
     table = cell.reFluorescenceTable
@@ -212,10 +244,15 @@ for cell in cellList:
     table[0] = 0
     cell.maxFluo = table[cell.maxFluoIndex]
     print('cell No: ', cell.cellNo, ' reFluorescenceTable: ', cell.reFluorescenceTable)
-'''
-# 画图
-plt.subplot(2,2,3)
+print('data save')
 
+with open(dataPath, 'wb') as f:                     # open file with write-mode
+    pickle.dump(cellList, f)                   # serialize and save object
+
+# 画图:柱状图
+
+g3 = fig.add_subplot(223)
+g3.set_title('Bar Chart')
 maxF = 0
 minF = 100000
 for cell in cellList:
@@ -223,11 +260,26 @@ for cell in cellList:
         maxF = cell.maxFluo
     elif minF > cell.maxFluo:
         minF = cell.maxFluo
+# delta = (round(maxF) - round(minF)) / (columnNum + 1)
 
-(ceil(maxF) - floor(minF)) / (columnNum + 1)
-x = np.linspace(floor(minF), ceil(maxF), columnNum + 2)
+xTicks = np.arange(round(maxF) + 1)
+columnY = np.zeros(round(maxF) + 1, dtype = int)
+for cell in cellList:
+    columnY[round(cell.maxFluo)] += 1
 
-print('x轴: ',x)
+# 定义柱状图每个柱的宽度
+bar_width = 1
 
+# 画柱状图，定义柱的宽度，同时设置柱的边缘为透明
+bars = g3.bar(xTicks, columnY, width=bar_width, edgecolor='none')
 
-'''
+# 设置y轴的标题
+g3.set_ylabel('Count')
+
+# x轴每个标签的具体位置，设置为每个柱的中央
+g3.set_xticks(xTicks + bar_width / 2)
+
+# 设置x轴的范围
+g3.set_xlim([0 - bar_width / 2, round(maxF) + 3 * bar_width / 2])
+
+plt.show()
