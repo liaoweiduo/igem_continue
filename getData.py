@@ -9,42 +9,9 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pickle
 import random
+from setting import *
+from Cell import Cell
 
-generalPath = "/Volumes/Seagate BUP/IGEM_new/20170409/GECO+Piezo/geco+piezo1ul/geco+piezo1ult%03dc1.tif"
-dataSave = "data/20170409geco+piezo1ul"
-stress = '0.0512 Pa'
-
-photosNum = 300  # the num of photos
-delay = 0.5
-
-minCellSize = 50  # a cell is bigger than $ pixels
-maxCellSize = 10000  # a cell is smaller than $ pixels
-ThreadHoldRate = 0.15  # Cell threadhold rate
-
-mpl.rcParams['axes.titlesize'] = 20
-mpl.rcParams['xtick.labelsize'] = 16
-mpl.rcParams['ytick.labelsize'] = 16
-mpl.rcParams['axes.labelsize'] = 16
-mpl.rcParams['xtick.major.size'] = 0
-mpl.rcParams['ytick.major.size'] = 0
-
-r = 1  # 高斯模糊模版半径，自己自由调整
-s = 2  # 高斯模糊sigema数值，自己自由调整
-
-class Cell:
-    cellsCount = 0
-
-    def __init__(self, topX, topY):
-        self.topPoint = (topX, topY)
-        self.downPoint = (topX, topY)
-        self.leftPoint = (topX, topY)
-        self.rightPoint = (topX, topY)
-        self.cellSize = 0  # count pixel of cell
-        Cell.cellsCount += 1
-        self.cellNo = Cell.cellsCount
-        self.reFluorescenceTable = np.zeros(photosNum)
-        self.maxFluo = 0.0
-        self.maxFluoIndex = 0
 
 img = Image.open(generalPath % (int(photosNum / 2)), 'r')
 im = np.array(img)
@@ -83,7 +50,7 @@ g1.imshow(im)
 
 label = np.zeros([im.shape[0], im.shape[1]], int16)
 
-# get threadHold  = average(max,min)
+# get threshold  = average(max,min)
 
 sortedIm = copy.copy(im)
 sortedIm.shape = [1, -1]
@@ -96,9 +63,9 @@ sortedIm.sort()
 # print(sortedIm.shape)
 minAve = sortedIm[0]
 maxAve = sortedIm[int(lenT) - 1]
-threadHold = minAve * (1 - ThreadHoldRate) + maxAve * ThreadHoldRate
+threshold = minAve * (1 - thresholdRate) + maxAve * thresholdRate
 
-# print('min: ', minAve, ' max: ', maxAve, ' threadHold: ', threadHold)
+# print('min: ', minAve, ' max: ', maxAve, ' threshold: ', threshold)
 
 # label     0:unVisit  1:cellNo ...   -1:background
 def labelExpend(cell, i, j):
@@ -109,7 +76,7 @@ def labelExpend(cell, i, j):
     while fifo.qsize() != 0:
         point = fifo.get()
         if label[point] == 0:
-            if im[point] > threadHold:
+            if im[point] > threshold:
                 label[point] = flag
             else:
                 label[point] = -1
@@ -169,7 +136,7 @@ cellsForParallel = {}
 for i in range(0, lenY):
     for j in range(0, lenX):
         if label[i, j] == 0:
-            if im[i, j] < threadHold:
+            if im[i, j] < threshold:
                 label[i, j] = - 1
             else:
                 cell = Cell(i, j)
@@ -292,7 +259,7 @@ g3.set_xlim([0 - bar_width / 2, round(maxF) + 3 * bar_width / 2])
 #画reFluo时间图
 g4 = fig.add_subplot(224)
 g4.set_title('Time Chart ' + stress)
-xTime = np.arange(photosNum) * delay
+xTime = np.arange(photosNum) * timeDelay
 colorMap = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
 colorIndex = 0
 for x in xTime:

@@ -255,7 +255,7 @@ ax.set_ylim([0, 125])
 # 给每个bar分配指定的颜色
 for bar, color in zip(bars, colors):
     bar.set_color(color)
-xx = plt.ginput(2)
+# xx = plt.ginput(2)
 # 在122位置加入新的图
 ff=plt.figure('sddffsdfdsf')
 bx = ff.add_subplot(222)
@@ -282,3 +282,14 @@ print(random.randint(1,5))
 ssss='sdfdsfsd'
 qqqq=ssss+'.ll'
 print(qqqq)
+
+
+bgValue = 5
+im=np.array([6,5,3,2,7,8,4,3])
+print(im)
+im = np.where(im>bgValue, im-bgValue,0)
+
+print(im)
+from Cell import Cell
+cell = Cell((1,2))
+print(cell.cellSize)
