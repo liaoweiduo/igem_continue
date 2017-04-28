@@ -9,7 +9,7 @@ timeDelay = 0.5 # time delay of each frame
 
 minCellSize = 50  # a cell is bigger than $ pixels
 maxCellSize = 10000  # a cell is smaller than $ pixels
-ThresholdRate = 0.15  # Cell threashold rate
+thresholdRate = 0.15  # Cell threashold rate
 
 mpl.rcParams['axes.titlesize'] = 20
 mpl.rcParams['xtick.labelsize'] = 16
