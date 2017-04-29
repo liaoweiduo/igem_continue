@@ -4,7 +4,7 @@ generalPath = "/Volumes/Seagate BUP/IGEM_new/20170409/GECO+Piezo/geco+piezo1ul/g
 dataSave = "data/20170409geco+piezo1ul"
 stress = '0.0512 Pa'
 
-photosNum = 5  # the num of photos
+photosNum = 300  # the num of photos
 timeDelay = 0.5 # time delay of each frame
 
 minCellSize = 50  # a cell is bigger than $ pixels

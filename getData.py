@@ -4,6 +4,7 @@ from MyGaussianBlur import MyGaussianBlur
 from pylab import *
 from PIL import Image
 import queue
+import copy
 import matplotlib.pyplot as plt
 import pickle
 import random
@@ -21,12 +22,13 @@ def labelExpend(cell, i, j):
             if label[point] > 0 and label[point] != flag and cell.cellSize < minCellSize / 2: # 不单独成为细胞的数据和已存在细胞相撞
                 cell.cellSize = 0
                 return
+            elif label[point] == flag:
+                continue
             if im[point] > threshold:
                 label[point] = flag
             else:
                 label[point] = -1
                 continue
-            cell.cellSize += 1
             cell.addPoint(point)
             if point[1] - 1 >= 0 and label[point[0], point[1] - 1] >= 0:  # left
                 fifo.put((point[0], point[1] - 1))
@@ -43,20 +45,12 @@ def removeCellByNo(cellList, cellNo):
             del (cell)
             return True
     return False
-
+'''改'''
 def fluoExpend(cell, im, bgValue):
     result = 0
-    visit = np.zeros([lenX, lenY], dtype=bool)
-    fifo = queue.Queue()
-    fifo.put(cell.topPoint)
-    while fifo.qsize() != 0:
-        point = fifo.get()
-        if label[point] == cell.cellNo and visit[point] == False:
-            visit[point] = True
-            result += im[point]
-            fifo.put((point[0], point[1] - 1))
-            fifo.put((point[0], point[1] + 1))
-            fifo.put((point[0] + 1, point[1]))
+    for point in cell.pointSet:
+        result += im[point]
+    result -= bgValue
     return result / cell.cellSize
 
 def processPhoto(photoIndex):
@@ -66,12 +60,10 @@ def processPhoto(photoIndex):
     im = np.array(img)
 
     # get bgValue
-    im_reshape = im.reshape(1, lenT)
+    im_t = copy.copy(im)
+    im_reshape = im_t.reshape(1, lenT)
     im_reshape.sort()
-    bgValue = im_reshape[0, lenT / 3:lenT / 2].mean()
-
-    # divide background
-    im = np.where(im > bgValue, im - bgValue, 0)
+    bgValue = im_reshape[0, int(lenT / 3) : int(lenT / 2)].mean()
 
     # 每个细胞
     for cell in cellList:
@@ -102,7 +94,8 @@ image = GBlur.filter(img, temp)  # 高斯模糊滤波，得到新的图片
 im = np.array(image)
 
 # get bgValue
-im_reshape = im.reshape(1, lenT)
+im_t = copy.copy(im)
+im_reshape = im_t.reshape(1, lenT)
 im_reshape.sort()
 bgValue = im_reshape[0, int(lenT / 3):int(lenT / 2)].mean()
 
