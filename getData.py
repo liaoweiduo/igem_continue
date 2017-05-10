@@ -1,6 +1,5 @@
 import multiprocessing
 from multiprocessing.sharedctypes import Value, Array
-from MyGaussianBlur import MyGaussianBlur
 from pylab import *
 from PIL import Image
 import queue
@@ -10,6 +9,7 @@ import pickle
 import random
 from setting import *
 from Cell import Cell
+import cv2
 
 def labelExpend(cell, i, j):
     flag = cell.cellNo
@@ -18,25 +18,20 @@ def labelExpend(cell, i, j):
 
     while fifo.qsize() != 0:
         point = fifo.get()
-        if label[point] >= 0:
-            if label[point] > 0 and label[point] != flag and cell.cellSize < minCellSize / 2: # 不单独成为细胞的数据和已存在细胞相撞
-                cell.cellSize = 0
-                return
-            elif label[point] == flag:
-                continue
-            if im[point] > threshold:
-                label[point] = flag
-            else:
-                label[point] = -1
-                continue
-            cell.addPoint(point)
-            if point[1] - 1 >= 0 and label[point[0], point[1] - 1] >= 0:  # left
-                fifo.put((point[0], point[1] - 1))
-            if point[1] + 1 < lenX and label[point[0], point[1] + 1] >= 0:  # right
-                fifo.put((point[0], point[1] + 1))
-            if point[0] + 1 < lenX and label[point[0] + 1, point[1]] >= 0:  # down
-                fifo.put((point[0] + 1, point[1]))
+        if label[point] == flag or label[point] == 0:
+            continue
+        elif label[point] != 255 and cell.cellSize < minCellSize / 2: # 不单独成为细胞的数据和已存在细胞相撞
+            cell.cellSize = 0
+            return
 
+        label[point] = flag
+        cell.addPoint(point)
+        if point[1] - 1 >= 0 and label[point[0], point[1] - 1] > 0:  # left
+            fifo.put((point[0], point[1] - 1))
+        if point[1] + 1 < lenX and label[point[0], point[1] + 1] > 0:  # right
+            fifo.put((point[0], point[1] + 1))
+        if point[0] + 1 < lenX and label[point[0] + 1, point[1]] > 0:  # down
+            fifo.put((point[0] + 1, point[1]))
 
 def removeCellByNo(cellList, cellNo):
     for cell in cellList:
@@ -63,7 +58,11 @@ def processPhoto(photoIndex):
     im_t = copy.copy(im)
     im_reshape = im_t.reshape(1, lenT)
     im_reshape.sort()
-    bgValue = im_reshape[0, int(lenT / 3) : int(lenT / 2)].mean()
+    bgValue = im_reshape[0, int(lenT / 2)]
+    # print('bgValue(get 50%) = ', bgValue)
+    # bgValue test
+    # bgValue_2 = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
+    # print('bgValue(chosen area) = ', bgValue_2)
 
     # 每个细胞
     for cell in cellList:
@@ -78,54 +77,72 @@ cellsForParallel = {}
 
 # get cell list
 # open img
-img = Image.open(generalPath % (int(photosNum / 2)), 'r')
-im = np.array(img)
+im = cv2.imread(generalPath % (int(photosNum / 2)), flags=cv2.IMREAD_ANYDEPTH)
 
 lenX = int(im.shape[0])
 lenY = int(im.shape[1])
 lenT = lenX * lenY
 
-label = np.zeros([lenX, lenY], int16) # 0:unVisit  1:cellNo ...   -1:background
-
-# GaussianBlur
-GBlur = MyGaussianBlur(radius=r, sigema=s)  # 声明高斯模糊类
-temp = GBlur.template()  # 得到滤波模版
-image = GBlur.filter(img, temp)  # 高斯模糊滤波，得到新的图片
-im = np.array(image)
-
-# get bgValue
 im_t = copy.copy(im)
-im_reshape = im_t.reshape(1, lenT)
+im_reshape = im_t.reshape(1, -1)
 im_reshape.sort()
-bgValue = im_reshape[0, int(lenT / 3):int(lenT / 2)].mean()
+maxAve = im_reshape[0, -1]
 
-# divide background
+img = Image.fromarray(im * (255.0 / maxAve))
+img = img.convert('L')
+
+blur = cv2.GaussianBlur(np.array(img), (r, r), s)
+
+canny = cv2.Canny(blur, cannyThreshold1, cannyThreshold2, apertureSize = 3)    # two threshold should be set
+
+# erode and dilate
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3, 3))
+dilated = canny
+for _ in range(1,10):
+    dilated = cv2.dilate(dilated,kernel)
+eroded = dilated
+for _ in range(1,10):
+    eroded = cv2.erode(eroded,kernel)
+label = eroded.astype(int)# 0:background  1:cellNo ...
+
+''' bgValue'''
+bgValue = im_reshape[0, int(lenT / 2)]
+'''
+plt.imshow(blur)
+bgPoint = plt.ginput(2)
+bgValue_2 = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
+print('bgValue(chosen area) = ', bgValue_2)
+'''
+'''
+# divide background 没用到全部减，最后求细胞荧光强度的时候再减
 im = np.where(im > bgValue, im - bgValue, 0)
-
+'''
 # plot picture without background
-fig = plt.figure(dataSave)
+fig = plt.figure(dataSave, figsize = (8,6), dpi = 80)
 g1 = fig.add_subplot(221)
-g1.set_title('Without Background')
-g1.imshow(im)
+g1.set_title('blur')
+g1.imshow(blur)
 
+g2 = fig.add_subplot(222)
+g2.set_title('Chosen Cells')
+g2.imshow(label)
+
+'''
 # get threshold
 minAve = im_reshape[0, 0]
 maxAve = im_reshape[0, -1]
 threshold = minAve * (1 - thresholdRate) + maxAve * thresholdRate
-
+'''
 # cell expend to fill cell list
 for i in range(0, lenY):
     for j in range(0, lenX):
-        if label[i, j] == 0:
-            if im[i, j] < threshold:
-                label[i, j] = - 1
-            else:
-                cell = Cell((i, j))
-                cellList.append(cell)
-                labelExpend(cell, i, j)
-                if cell.cellSize < minCellSize or cell.cellSize > maxCellSize:
-                    cellList.remove(cell)
-                    del (cell)
+        if label[i, j] == 255:
+            cell = Cell((i, j))
+            cellList.append(cell)
+            labelExpend(cell, i, j)
+            if cell.cellSize < minCellSize or cell.cellSize > maxCellSize:
+                cellList.remove(cell)
+                del (cell)
 
 '''待加入check cellList，删除圆形细胞及非细胞的代码'''
 
@@ -137,8 +154,6 @@ for cell in cellList:
         'maxFluoIndex' : Value('i', 0, lock = True)}
 
 print('finish init')
-g2 = fig.add_subplot(222)
-g2.set_title('Chosen Cells')
 g2.imshow(label)
 
 # data processing per picture
@@ -172,9 +187,9 @@ for cell in cellList:
             table[index] = 0
     table[0] = 0
     cell.maxFluo = table[cell.maxFluoIndex]
-    print('cell No: ', cell.cellNo, ' reFluorescenceTable: ', cell.reFluorescenceTable)
-print('data save')
+    print('cell No: ', cell.cellNo, ' maxFluo: ', cell.maxFluo)
 
+print('data save')
 with open(dataSave + '.pkl', 'wb') as f:                     # open file with write-mode
     pickle.dump(cellList, f)                   # serialize and save object
 
@@ -193,14 +208,14 @@ for cell in cellList:
         minF = cell.maxFluo
 # delta = (round(maxF) - round(minF)) / (columnNum + 1)
 
-xTicks = np.arange(round(maxF) + 1)
-columnY = np.zeros(round(maxF) + 1, dtype = int)
+xTicks = np.arange(int(floor(maxF)) + 1)
+columnY = np.zeros(int(floor(maxF)) + 1, dtype = int)
 for cell in cellList:
-    columnY[round(cell.maxFluo)] += 1
-    if cellMap.get(round(cell.maxFluo)) == None:
-        cellMap[round(cell.maxFluo)] = [cell]
+    columnY[int(floor(cell.maxFluo))] += 1
+    if cellMap.get(int(floor(cell.maxFluo))) == None:
+        cellMap[int(floor(cell.maxFluo))] = [cell]
     else:
-        cellMap[round(cell.maxFluo)].append(cell)
+        cellMap[int(floor(cell.maxFluo))].append(cell)
 
 # 定义柱状图每个柱的宽度
 bar_width = 1
@@ -215,7 +230,7 @@ g3.set_ylabel('Count')
 g3.set_xticks(xTicks + bar_width / 2)
 
 # 设置x轴的范围
-g3.set_xlim([0 - bar_width / 2, round(maxF) + 3 * bar_width / 2])
+g3.set_xlim([0 - bar_width / 2, floor(maxF) + 3 * bar_width / 2])
 
 #画reFluo时间图
 g4 = fig.add_subplot(224)
@@ -229,7 +244,7 @@ for x in xTime:
     selectedCellIndex = random.randint(0,len(cellMap[x])-1)
     selectedCell = cellMap[x][selectedCellIndex]
     print('select cell No: ', selectedCell.cellNo)
-    g4.plot(xTime, selectedCell.reFluorescenceTable, colorMap[colorIndex])
+    g4.plot(xTime, selectedCell.reFluorescenceTable, color = colorMap[colorIndex], linewidth = 2.5, linestyle = "-")
     colorIndex += 1 if colorIndex < 7 else 0
 
 plt.savefig(dataSave + '.png')
