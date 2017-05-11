@@ -313,23 +313,42 @@ im = cv2.imread('piezot001c1.tif', flags=cv2.IMREAD_ANYDEPTH)
 
 
 
+lenX = int(im.shape[0])
+lenY = int(im.shape[1])
+lenT = lenX * lenY
 
 im_t = copy.copy(im)
 im_reshape = im_t.reshape(1, -1)
 im_reshape.sort()
-maxAve = im_reshape[0, -1]
+bgValue = im_reshape[0, int(lenT * 0.7)]
+'''
+print('bgValue(get 70%) = ', bgValue)
+plt.imshow(im)
+bgPoint = plt.ginput(2)
+bgValue_2 = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
+print('bgValue(chosen area) = ', bgValue_2)
+'''
+im = np.where(im > bgValue, im - bgValue, 0)
+maxAve = im_reshape[0, -1] - bgValue #if im_reshape[0, -1] > bgValue else 0
 
 img = Image.fromarray(im * (255.0 / maxAve))
 img = img.convert('L')
-
 blur = cv2.GaussianBlur(np.array(img), (3, 3), 0)
 # blur = cv2.blur(np.array(img), (3, 3))
 
-hist = cv2.calcHist([blur],[0],None,[256],[0,256]) #获得直方图
-mean = hist.mean()
-RMS = hist.var()
+x = cv2.Sobel(blur, cv2.CV_16S, 1, 0)
+y = cv2.Sobel(blur, cv2.CV_16S, 0, 1)
 
-canny = cv2.Canny(blur, mean + RMS, mean + 3 * RMS, apertureSize = 3)    # two threshold should be set
+absX = cv2.convertScaleAbs(x)  # 转回uint8
+absY = cv2.convertScaleAbs(y)
+
+dst = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
+
+hist = cv2.calcHist([dst],[0],None,[256],[0,256]) #获得直方图
+mean = dst.mean()
+RMS = dst.std()
+
+canny = cv2.Canny(blur, mean + 3* RMS, mean + 10 * RMS)    # two threshold should be set
 
 # erode and dilate
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3, 3))
@@ -346,13 +365,20 @@ for i in range(1,10):
 
 fig = plt.figure(figsize=(8, 6), dpi=80)
 g1 = fig.add_subplot(221)
-g1.imshow(blur)
+g1.imshow(canny)
 g2 = fig.add_subplot(222)
-g2.imshow(canny)
+g2.plot(hist)
 g3 = fig.add_subplot(223)
 g3.imshow(eroded)
 g4 = fig.add_subplot(224)
-g4.imshow(eroded)
+g4.imshow(dst)
 
 
 plt.show()
+
+
+
+aa = [0,1,2,3,4,5]
+bb = [6,6,6,6,6,6,555]
+
+# print(bb[a for a in aa].mean())

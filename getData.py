@@ -45,24 +45,20 @@ def fluoExpend(cell, im, bgValue):
     result = 0
     for point in cell.pointSet:
         result += im[point]
-    result -= bgValue
     return result / cell.cellSize
 
 def processPhoto(photoIndex):
     # print('处理第', photoIndex+1, '张照片...') # if photoIndex % 10 == 0 else None
 
-    img = Image.open(generalPath % (photoIndex + 1), 'r')
-    im = np.array(img)
+    im = cv2.imread(generalPath % (photoIndex + 1), flags=cv2.IMREAD_ANYDEPTH)
 
     # get bgValue
     im_t = copy.copy(im)
     im_reshape = im_t.reshape(1, lenT)
     im_reshape.sort()
-    bgValue = im_reshape[0, int(lenT / 2)]
-    # print('bgValue(get 50%) = ', bgValue)
-    # bgValue test
-    # bgValue_2 = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
-    # print('bgValue(chosen area) = ', bgValue_2)
+    bgValue = im_reshape[0, int(lenT * 0.7)]
+    # divide background
+    im = np.where(im > bgValue, im - bgValue, 0)
 
     # 每个细胞
     for cell in cellList:
@@ -86,14 +82,39 @@ lenT = lenX * lenY
 im_t = copy.copy(im)
 im_reshape = im_t.reshape(1, -1)
 im_reshape.sort()
-maxAve = im_reshape[0, -1]
+
+''' bgValue'''
+bgValue = im_reshape[0, int(lenT * 0.7)]
+'''
+print('bgValue(get 70%) = ', bgValue)
+plt.imshow(blur)
+bgPoint = plt.ginput(2)
+bgValue_2 = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
+print('bgValue(chosen area) = ', bgValue_2)
+'''
+# divide background
+im = np.where(im > bgValue, im - bgValue, 0)
+
+maxAve = im_reshape[0, -1] - bgValue
 
 img = Image.fromarray(im * (255.0 / maxAve))
 img = img.convert('L')
 
 blur = cv2.GaussianBlur(np.array(img), (r, r), s)
 
-canny = cv2.Canny(blur, cannyThreshold1, cannyThreshold2, apertureSize = 3)    # two threshold should be set
+# canny and adapted threshold —— 梯度直方图法
+x = cv2.Sobel(blur, cv2.CV_16S, 1, 0) # Sobel 算子
+y = cv2.Sobel(blur, cv2.CV_16S, 0, 1)
+
+absX = cv2.convertScaleAbs(x)  # 转回uint8
+absY = cv2.convertScaleAbs(y)
+
+dst = cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
+
+meanForThreshold = dst.mean()
+rmsForThreshold = dst.std()
+
+canny = cv2.Canny(blur, meanForThreshold + 5 * rmsForThreshold, meanForThreshold + 10 * rmsForThreshold, apertureSize = 3)
 
 # erode and dilate
 kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3, 3))
@@ -105,18 +126,6 @@ for _ in range(1,10):
     eroded = cv2.erode(eroded,kernel)
 label = eroded.astype(int)# 0:background  1:cellNo ...
 
-''' bgValue'''
-bgValue = im_reshape[0, int(lenT / 2)]
-'''
-plt.imshow(blur)
-bgPoint = plt.ginput(2)
-bgValue_2 = int(im[int(bgPoint[0][1]): int(bgPoint[1][1]), int(bgPoint[0][0]): int(bgPoint[1][0])].mean())
-print('bgValue(chosen area) = ', bgValue_2)
-'''
-'''
-# divide background 没用到全部减，最后求细胞荧光强度的时候再减
-im = np.where(im > bgValue, im - bgValue, 0)
-'''
 # plot picture without background
 fig = plt.figure(dataSave, figsize = (8,6), dpi = 80)
 g1 = fig.add_subplot(221)
@@ -155,6 +164,7 @@ for cell in cellList:
 
 print('finish init')
 g2.imshow(label)
+plt.show()
 
 # data processing per picture
 '''没有考虑到细胞的帧偏移'''
