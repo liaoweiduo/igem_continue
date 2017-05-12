@@ -12,15 +12,16 @@ maxCellSize = 10000  # a cell is smaller than $ pixels
 '''
 thresholdRate = 0.15  # Cell threashold rate
 '''
-mpl.rcParams['axes.titlesize'] = 20
-mpl.rcParams['xtick.labelsize'] = 16
-mpl.rcParams['ytick.labelsize'] = 16
-mpl.rcParams['axes.labelsize'] = 16
-mpl.rcParams['xtick.major.size'] = 0
-mpl.rcParams['ytick.major.size'] = 0
+# mpl.rcParams['axes.titlesize'] = 20
+# mpl.rcParams['xtick.labelsize'] = 16
+# mpl.rcParams['ytick.labelsize'] = 16
+# mpl.rcParams['axes.labelsize'] = 16
+# mpl.rcParams['xtick.major.size'] = 0
+# mpl.rcParams['ytick.major.size'] = 0
 
 r = 3  # 高斯模糊模版半径，自己自由调整
 s = 0  # 高斯模糊sigema数值，自己自由调整
-
+'''
 cannyThreshold1 = 30
 cannyThreshold2 = 80
+'''

@@ -304,6 +304,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import copy
 import cv2
+import pandas as pd
 from PIL import Image
 
 # im = cv2.imread('/Volumes/Seagate BUP/IGEM_new/20170409/GECO/geco1ul/geco1ult001c1.tif', flags=cv2.IMREAD_ANYDEPTH)
@@ -311,10 +312,8 @@ im = cv2.imread('piezot001c1.tif', flags=cv2.IMREAD_ANYDEPTH)
 #im = cv2.imread('1_u012599883.jpg', flags=cv2.IMREAD_ANYDEPTH)
 
 
-
-
-lenX = int(im.shape[0])
-lenY = int(im.shape[1])
+lenY = int(im.shape[0])
+lenX = int(im.shape[1])
 lenT = lenX * lenY
 
 im_t = copy.copy(im)
@@ -363,22 +362,45 @@ for i in range(1,10):
 
 
 
-fig = plt.figure(figsize=(8, 6), dpi=80)
+import pylab as pl
+fig = plt.figure(figsize=(8, 6), dpi=150)
 g1 = fig.add_subplot(221)
 g1.imshow(canny)
 g2 = fig.add_subplot(222)
 g2.plot(hist)
 g3 = fig.add_subplot(223)
-g3.imshow(eroded)
+g3.imshow(eroded, cmap=pl.cm.jet)
+cax = g3.colorbar()
 g4 = fig.add_subplot(224)
 g4.imshow(dst)
+te = [(1000,500),(400,250)]
+tee = pd.DataFrame(te)
 
-
+print(list(tee.loc[:,0]))
+g1.plot(list(tee.loc[:,0]),list(tee.loc[:,1]), 'r.')
+g1.axis([0,lenX,lenY,0])
 plt.show()
-
 
 
 aa = [0,1,2,3,4,5]
 bb = [6,6,6,6,6,6,555]
 
 # print(bb[a for a in aa].mean())
+
+import numpy as np
+from scipy.ndimage import label, imread
+from matplotlib.colors import ListedColormap
+import pylab as pl
+
+img = imread("label_image.png")
+img = img > 200
+
+labeled, max_label = label(img)
+
+pl.figure()
+colors = [(0.0,0.0,0.0)]
+colors.extend(pl.cm.jet(np.linspace(0, 1, max_label)))
+cmap = ListedColormap(colors)
+im = pl.imshow(labeled, cmap=cmap)
+cax = pl.colorbar()
+pl.show()

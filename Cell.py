@@ -12,6 +12,9 @@ class Cell:
         self.maxFluo = 0.0
         self.maxFluoIndex = 0
 
+    def __del__(self):
+        Cell.cellsCount -= 1
+
     def addPoint(self, point):
         self.pointSet.append(point)
         self.cellSize += 1

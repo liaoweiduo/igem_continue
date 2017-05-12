@@ -7,9 +7,12 @@ import copy
 import matplotlib.pyplot as plt
 import pickle
 import random
+import pandas as pd
 from setting import *
 from Cell import Cell
 import cv2
+from matplotlib.colors import ListedColormap
+import pylab as pl
 
 def labelExpend(cell, i, j):
     flag = cell.cellNo
@@ -75,8 +78,8 @@ cellsForParallel = {}
 # open img
 im = cv2.imread(generalPath % (int(photosNum / 2)), flags=cv2.IMREAD_ANYDEPTH)
 
-lenX = int(im.shape[0])
-lenY = int(im.shape[1])
+lenY = int(im.shape[0])
+lenX = int(im.shape[1])
 lenT = lenX * lenY
 
 im_t = copy.copy(im)
@@ -127,21 +130,11 @@ for _ in range(1,10):
 label = eroded.astype(int)# 0:background  1:cellNo ...
 
 # plot picture without background
-fig = plt.figure(dataSave, figsize = (8,6), dpi = 80)
+fig = plt.figure(dataSave, figsize = (8,6), dpi = 150)
 g1 = fig.add_subplot(221)
 g1.set_title('blur')
 g1.imshow(blur)
 
-g2 = fig.add_subplot(222)
-g2.set_title('Chosen Cells')
-g2.imshow(label)
-
-'''
-# get threshold
-minAve = im_reshape[0, 0]
-maxAve = im_reshape[0, -1]
-threshold = minAve * (1 - thresholdRate) + maxAve * thresholdRate
-'''
 # cell expend to fill cell list
 for i in range(0, lenY):
     for j in range(0, lenX):
@@ -162,9 +155,17 @@ for cell in cellList:
         'maxFluo' : Value('f', 0.0, lock = True),
         'maxFluoIndex' : Value('i', 0, lock = True)}
 
+'''刷新label数组，用于显示选择的细胞'''
+label = np.zeros((lenX,lenY), dtype = int)
+for cell in cellList:
+    for point in cell.pointSet:
+        label[point] = cell.cellNo
+
 print('finish init')
+g2 = fig.add_subplot(222)
+g2.set_title('Chosen Cells')
 g2.imshow(label)
-plt.show()
+
 
 # data processing per picture
 '''没有考虑到细胞的帧偏移'''
@@ -197,13 +198,13 @@ for cell in cellList:
             table[index] = 0
     table[0] = 0
     cell.maxFluo = table[cell.maxFluoIndex]
-    print('cell No: ', cell.cellNo, ' maxFluo: ', cell.maxFluo)
 
 print('data save')
 with open(dataSave + '.pkl', 'wb') as f:                     # open file with write-mode
     pickle.dump(cellList, f)                   # serialize and save object
 
 # 画图
+
 
 cellMap = {}
 
@@ -216,7 +217,6 @@ for cell in cellList:
         maxF = cell.maxFluo
     elif minF > cell.maxFluo:
         minF = cell.maxFluo
-# delta = (round(maxF) - round(minF)) / (columnNum + 1)
 
 xTicks = np.arange(int(floor(maxF)) + 1)
 columnY = np.zeros(int(floor(maxF)) + 1, dtype = int)
@@ -246,17 +246,27 @@ g3.set_xlim([0 - bar_width / 2, floor(maxF) + 3 * bar_width / 2])
 g4 = fig.add_subplot(224)
 g4.set_title('Time Chart ' + stress)
 xTime = np.arange(photosNum) * timeDelay
-colorMap = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
-colorIndex = 0
+
+'''colorMap'''
+colorMap = [(0.0,0.0,0.0)]
+colorMap.extend(pl.cm.jet(np.linspace(0, 1, Cell.cellsCount)))   # color range: 0 -> 1  还没找到对应真实颜色值
+selfMap = ListedColormap(colorMap)
+
+
+# colorIndex = 1
 for x in xTime:
     if cellMap.get(x) == None:
         continue
     selectedCellIndex = random.randint(0,len(cellMap[x])-1)
     selectedCell = cellMap[x][selectedCellIndex]
     print('select cell No: ', selectedCell.cellNo)
-    g4.plot(xTime, selectedCell.reFluorescenceTable, color = colorMap[colorIndex], linewidth = 2.5, linestyle = "-")
-    colorIndex += 1 if colorIndex < 7 else 0
+    g4.plot(xTime, selectedCell.reFluorescenceTable, color = colorMap[selectedCell.cellNo], linewidth = 1, linestyle = "-")
+    g2.imshow(label, cmap = selfMap)
+    # pointS = pd.DataFrame(selectedCell.pointSet)
+    # g2.plot(list(pointS.loc[:, 1]),list(pointS.loc[:, 0]), c = colorMap[colorIndex])
+    # colorIndex += 1
 
-plt.savefig(dataSave + '.png')
+
+plt.savefig(dataSave + '.png', dpi = 200)
 plt.show()
 
