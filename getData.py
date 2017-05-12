@@ -46,8 +46,14 @@ def removeCellByNo(cellList, cellNo):
 '''改'''
 def fluoExpend(cell, im, bgValue):
     result = 0
+    ims = []
+    l = len(cell.pointSet)
     for point in cell.pointSet:
-        result += im[point]
+        ims.append(im[point])
+    ims.sort()
+    for im_int in ims[int(l * 0.1) : int(l * 0.99)]:    # ims increase order,
+        result += im_int
+
     return result / cell.cellSize
 
 def processPhoto(photoIndex):
@@ -134,6 +140,8 @@ fig = plt.figure(dataSave, figsize = (8,6), dpi = 150)
 g1 = fig.add_subplot(221)
 g1.set_title('blur')
 g1.imshow(blur)
+g1.set_xticks([])
+g1.set_yticks([])
 
 # cell expend to fill cell list
 for i in range(0, lenY):
@@ -164,7 +172,7 @@ for cell in cellList:
 print('finish init')
 g2 = fig.add_subplot(222)
 g2.set_title('Chosen Cells')
-g2.imshow(label)
+# g2.imshow(label)
 
 
 # data processing per picture
@@ -227,19 +235,15 @@ for cell in cellList:
     else:
         cellMap[int(floor(cell.maxFluo))].append(cell)
 
-# 定义柱状图每个柱的宽度
+'''colorMap    after cellMap init'''
+colorMap = [(1.0, 1.0, 1.0, 1.0)]
+colorMap.extend(pl.cm.jet(np.linspace(0, 1, len(cellMap))))  # color range: 0 -> 1  还没找到对应真实颜色值
+selfMap = ListedColormap(colorMap)
+
 bar_width = 1
-
-# 画柱状图，定义柱的宽度，同时设置柱的边缘为透明
-bars = g3.bar(xTicks, columnY, width=bar_width, edgecolor='none')
-
-# 设置y轴的标题
+bars = g3.bar(xTicks, columnY, width = bar_width - 0.1, edgecolor = 'none')
 g3.set_ylabel('Count')
-
-# x轴每个标签的具体位置，设置为每个柱的中央
 g3.set_xticks(xTicks + bar_width / 2)
-
-# 设置x轴的范围
 g3.set_xlim([0 - bar_width / 2, floor(maxF) + 3 * bar_width / 2])
 
 #画reFluo时间图
@@ -247,26 +251,35 @@ g4 = fig.add_subplot(224)
 g4.set_title('Time Chart ' + stress)
 xTime = np.arange(photosNum) * timeDelay
 
-'''colorMap'''
-colorMap = [(0.0,0.0,0.0)]
-colorMap.extend(pl.cm.jet(np.linspace(0, 1, Cell.cellsCount)))   # color range: 0 -> 1  还没找到对应真实颜色值
-selfMap = ListedColormap(colorMap)
-
-
-# colorIndex = 1
-for x in xTime:
+colorIndex = 1
+for x in xTicks:
     if cellMap.get(x) == None:
         continue
-    selectedCellIndex = random.randint(0,len(cellMap[x])-1)
-    selectedCell = cellMap[x][selectedCellIndex]
-    print('select cell No: ', selectedCell.cellNo)
-    g4.plot(xTime, selectedCell.reFluorescenceTable, color = colorMap[selectedCell.cellNo], linewidth = 1, linestyle = "-")
-    g2.imshow(label, cmap = selfMap)
+
+    '''change label to set color'''
+    for cell in cellMap[x]:
+        for point in cell.pointSet:
+            label[point] = colorIndex
+
+    selectedCell = cellMap[x][random.randint(0,len(cellMap[x])-1)]
+    '''在g2中用某种方式标出selected cell'''
+    g4.plot(xTime, selectedCell.reFluorescenceTable, color = colorMap[colorIndex], linewidth = 1, linestyle = "-")
     # pointS = pd.DataFrame(selectedCell.pointSet)
     # g2.plot(list(pointS.loc[:, 1]),list(pointS.loc[:, 0]), c = colorMap[colorIndex])
-    # colorIndex += 1
+    bars[x].set_color(colorMap[colorIndex])
+    selectedPoint = selectedCell.pointSet[int(len(selectedCell.pointSet) / 2)]
+    g2.annotate('', xy = (selectedPoint[1], selectedPoint[0]),
+                xytext = (selectedPoint[1], selectedPoint[0]-250),
+            arrowprops = dict(arrowstyle = "->", connectionstyle = "arc3,rad=.2",
+                              color = multiply(colorMap[colorIndex], [1, 1, 1, 0.5]) ),
+            )
+    colorIndex += 1
 
+'''repaint label'''
+g2.imshow(label, cmap = selfMap)
+g2.set_xticks([])
+g2.set_yticks([])
 
-plt.savefig(dataSave + '.png', dpi = 200)
+plt.savefig(dataSave + '.png', dpi = 400)
 plt.show()
 

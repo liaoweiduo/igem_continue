@@ -370,7 +370,13 @@ g2 = fig.add_subplot(222)
 g2.plot(hist)
 g3 = fig.add_subplot(223)
 g3.imshow(eroded, cmap=pl.cm.jet)
-cax = g3.colorbar()
+g3.annotate('', xy = (500,500),
+            xytext = (600,700),
+        arrowprops = dict(arrowstyle = "->", connectionstyle = "arc3,rad=.2", color = (1,1,1,0.5)),
+        )
+g3.set_xticks([])
+g3.set_yticks([])
+
 g4 = fig.add_subplot(224)
 g4.imshow(dst)
 te = [(1000,500),(400,250)]
@@ -379,14 +385,14 @@ tee = pd.DataFrame(te)
 print(list(tee.loc[:,0]))
 g1.plot(list(tee.loc[:,0]),list(tee.loc[:,1]), 'r.')
 g1.axis([0,lenX,lenY,0])
-plt.show()
+# plt.show()
 
 
 aa = [0,1,2,3,4,5]
 bb = [6,6,6,6,6,6,555]
 
 # print(bb[a for a in aa].mean())
-
+'''
 import numpy as np
 from scipy.ndimage import label, imread
 from matplotlib.colors import ListedColormap
@@ -404,3 +410,7 @@ cmap = ListedColormap(colors)
 im = pl.imshow(labeled, cmap=cmap)
 cax = pl.colorbar()
 pl.show()
+'''
+print(pl.cm.jet(np.linspace(0, 1, 5)))
+from numpy import *
+print(multiply((1,2,3),(1,1,2)))

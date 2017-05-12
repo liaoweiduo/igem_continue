@@ -7,7 +7,7 @@ stress = '0.0512 Pa'
 photosNum = 300  # the num of photos
 timeDelay = 0.5 # time delay of each frame
 
-minCellSize = 50  # a cell is bigger than $ pixels
+minCellSize = 300  # a cell is bigger than $ pixels
 maxCellSize = 10000  # a cell is smaller than $ pixels
 '''
 thresholdRate = 0.15  # Cell threashold rate
