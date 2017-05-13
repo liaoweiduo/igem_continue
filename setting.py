@@ -1,7 +1,7 @@
 import matplotlib as mpl
 
 generalPath = "/Volumes/Seagate BUP/IGEM_new/20170409/GECO/geco1ul/geco1ult%03dc1.tif"
-dataSave = "data/20170409geco1ul"
+dataSave = "../data/20170409geco1ul"
 stress = '0.0512 Pa'
 
 photosNum = 300  # the num of photos
