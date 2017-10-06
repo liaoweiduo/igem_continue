@@ -7,7 +7,6 @@ import copy
 import matplotlib.pyplot as plt
 import pickle
 import random
-import pandas as pd
 from setting import *
 from Cell import Cell
 import cv2
@@ -167,12 +166,12 @@ for cell in cellList:
 label = np.zeros((lenX,lenY), dtype = int)
 for cell in cellList:
     for point in cell.pointSet:
-        label[point] = cell.cellNo
+        label[point] = 255
 
 print('finish init')
 g2 = fig.add_subplot(222)
 g2.set_title('Chosen Cells')
-# g2.imshow(label)
+g2.imshow(label)
 
 
 # data processing per picture
@@ -226,40 +225,44 @@ for cell in cellList:
     elif minF > cell.maxFluo:
         minF = cell.maxFluo
 
-xTicks = np.arange(int(floor(maxF)) + 1)
-columnY = np.zeros(int(floor(maxF)) + 1, dtype = int)
+xTicks = np.arange(int(floor(maxF)) - int(floor(minF)) + 1)
+columnY = np.zeros(int(floor(maxF)) - int(floor(minF)) + 1, dtype = int)       #不管maxF是负数的细胞了
 for cell in cellList:
-    columnY[int(floor(cell.maxFluo))] += 1
+    columnY[int(floor(cell.maxFluo)) - int(floor(minF))] += 1
     if cellMap.get(int(floor(cell.maxFluo))) == None:
         cellMap[int(floor(cell.maxFluo))] = [cell]
     else:
         cellMap[int(floor(cell.maxFluo))].append(cell)
 
 '''colorMap    after cellMap init'''
-colorMap = [(1.0, 1.0, 1.0, 1.0)]
+colorMap = [array([1.0, 1.0, 1.0, 1.0])]
 colorMap.extend(pl.cm.jet(np.linspace(0, 1, len(cellMap))))  # color range: 0 -> 1  还没找到对应真实颜色值
+# print("colorMap:", colorMap)
 selfMap = ListedColormap(colorMap)
 
 bar_width = 1
-bars = g3.bar(xTicks, columnY, width = bar_width - 0.1, edgecolor = 'none')
-g3.set_ylabel('Count')
-g3.set_xticks(xTicks + bar_width / 2)
-g3.set_xlim([0 - bar_width / 2, floor(maxF) + 3 * bar_width / 2])
+bars = g3.bar(xTicks, columnY, width = bar_width - 0.1, edgecolor = 'none', color = pl.cm.jet(np.linspace(0, 1, len(cellMap))))
 
+g3.set_ylabel('Count')
+g3.set_xticks(xTicks + int(floor(minF)) + bar_width / 2)
+g3.set_xlim([int(floor(minF)) - bar_width / 2, int(floor(maxF)) - int(floor(minF)) + 1 + bar_width / 2])
+axis = g3.xaxis
+for lab in axis.get_ticklabels():
+    lab.set_fontsize(5)
 #画reFluo时间图
 g4 = fig.add_subplot(224)
 g4.set_title('Time Chart ' + stress)
 xTime = np.arange(photosNum) * timeDelay
 
 colorIndex = 1
-for x in xTicks:
+for x in xTicks + int(floor(minF)):
     if cellMap.get(x) == None:
         continue
 
     '''change label to set color'''
     for cell in cellMap[x]:
         for point in cell.pointSet:
-            label[point] = colorIndex
+            label[point] = colorIndex * 255 / (int(floor(maxF)) - int(floor(minF)) + 1)
 
     selectedCell = cellMap[x][random.randint(0,len(cellMap[x])-1)]
     '''在g2中用某种方式标出selected cell'''
@@ -274,8 +277,7 @@ for x in xTicks:
                               color = multiply(colorMap[colorIndex], [1, 1, 1, 0.5]) ),
             )
     colorIndex += 1
-
-'''repaint label'''
+'''repaint label,让cellMap里的cell都显示一种颜色'''
 g2.imshow(label, cmap = selfMap)
 g2.set_xticks([])
 g2.set_yticks([])
