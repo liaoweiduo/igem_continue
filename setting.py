@@ -1,6 +1,7 @@
 import matplotlib as mpl
 
 generalPath = "/Volumes/Seagate BUP/IGEM_new/20170409/GECO/geco1ul/geco1ult%03dc1.tif"
+labelPath =   "/Volumes/Seagate BUP/IGEM_new/20170409/GECO/geco1ul/geco1ul.tif"
 dataSave = "../data/20170409geco1ul"
 stress = '0.0512 Pa'
 
